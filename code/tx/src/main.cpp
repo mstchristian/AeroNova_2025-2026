@@ -1,12 +1,13 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include <SPI.h>
 #include <Adafruit_BME280.h>
 #include <SoftwareSerial.h>
 #include <TinyGPS.h>
 #include <MPU6050.h>
 #include <Adafruit_LTR390.h>
 #include "Adafruit_SGP30.h"
+
+#define SEALEVELPRESSURE_HPA 1021
 
 Adafruit_BME280 bme;
 TinyGPS gps;
@@ -15,7 +16,9 @@ MPU6050 mpu;
 Adafruit_LTR390 ltr = Adafruit_LTR390();
 Adafruit_SGP30 sgp;
 
-float temperature, humidity, pressure;
+const char* teamName = "AeroNova";
+uint32_t packet = 0;
+float temperature, humidity, pressure, altitude;
 bool gpsData = false;
 float latitude = 0.0, longitude = 0.0;
 int satellites = 0;
@@ -32,7 +35,7 @@ const float gyroScale = 250.0 / 32768.0;
 unsigned long lastPrint = 0;
 const unsigned long printInterval = 200;
 
-int counter = 0;
+uint8_t counter = 0;
 
 uint32_t getAbsoluteHumidity(float temperature, float humidity) {
     const float absoluteHumidity =
@@ -44,11 +47,15 @@ uint32_t getAbsoluteHumidity(float temperature, float humidity) {
 }
 
 void printData() {
+
+    Serial.print(teamName); Serial.print("\t");
+    Serial.print(packet); Serial.print("\t");
+
     Serial.print(temperature); Serial.print("\t");
     Serial.print(humidity); Serial.print("\t");
     Serial.print(pressure); Serial.print("\t");
+    Serial.print(altitude); Serial.print("\t");
 
-    Serial.print(gpsData ? "1" : "0"); Serial.print("\t");
     Serial.print(latitude, 6); Serial.print("\t");
     Serial.print(longitude, 6); Serial.print("\t");
     Serial.print(satellites); Serial.print("\t");
@@ -64,7 +71,9 @@ void printData() {
     Serial.print(uvRaw); Serial.print("\t");
 
     Serial.print(TVOC); Serial.print("\t");
-    Serial.println(eCO2);
+    Serial.print(eCO2); Serial.print("\t");
+
+    Serial.println(gpsData ? "1" : "0");
 }
 
 void setup() {
@@ -97,7 +106,7 @@ void setup() {
         while (1);
     }
 
-    Serial.println("Temp\tHum\tPres\tGPS\tLat\tLon\tSat\tax\tay\taz\tgx\tgy\tgz\tUV\tTVOC\teCO2");
+    Serial.println("Team\tPacket\tTemp\tHum\tPres\tAlt\tLat\tLon\tSat\tax\tay\taz\tgx\tgy\tgz\tUV\tTVOC\teCO2\tGPS");
 }
 
 void loop() {
@@ -115,6 +124,7 @@ void loop() {
         temperature = bme.readTemperature();
         humidity = bme.readHumidity();
         pressure = bme.readPressure() / 100.0F;
+        altitude = bme.readAltitude(SEALEVELPRESSURE_HPA);
 
         mpu.getAcceleration(&ax, &ay, &az);
         mpu.getRotation(&gx, &gy, &gz);
@@ -149,5 +159,7 @@ void loop() {
             uint16_t TVOC_base, eCO2_base;
             sgp.getIAQBaseline(&eCO2_base, &TVOC_base);
         }
+
+        packet++;
     }
 }
